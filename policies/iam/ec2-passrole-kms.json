@@ -1,0 +1,30 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect":"Allow",
+            "Action":[
+                "kms:DescribeKey",
+                "kms:ReEncryptFrom",
+                "kms:ReEncryptTo",
+                "kms:CreateGrant",
+                "kms:Decrypt"
+            ],
+            "Resource": [
+                "arn:aws:kms:${region}:${account_number}:key/${kms_key_id_1}",
+                "arn:aws:kms:${region}:${account_number}:key/${kms_key_id_1}",
+            ]
+        },
+        {
+            "Sid":"PassRolePermission",
+            "Effect": "Allow",
+            "Action": [
+                "iam:GetRole"
+                "iam:PassRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::${account_number}:role/${admin_role}"
+            ]
+        }
+    ]
+}

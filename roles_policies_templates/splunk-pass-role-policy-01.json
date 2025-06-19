@@ -1,0 +1,16 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PassRolePermission",
+            "Effect": "Allow",
+            "Action": [
+                "iam:GetRole",
+                "iam:PassRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::863862637707:role/splunk-ec2-role-01"
+            ]
+        }
+    ]
+}

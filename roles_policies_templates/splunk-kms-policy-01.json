@@ -1,0 +1,18 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "kms:DescribeKey",
+                "kms:ReEncryptFrom",
+                "kms:ReEncryptTo",
+                "kms:CreateGrant",
+                "kms:Decrypt"
+            ],
+            "Resource" : [
+                "arn:aws:kms:us-east-1:863862637707:key/7949442a-6abe-4806-84e0-400e021efded"
+            ]
+        }
+    ]
+}

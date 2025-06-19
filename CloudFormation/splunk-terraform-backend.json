@@ -1,0 +1,229 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "CloudFormation Template To Create Terraform Backend for Splunk Application",
+    "Parameters": {
+        "KMSAliasName": {
+             "Type": "String",
+            "Default": "splunk-terraform-kms-01",
+            "Description": "Enter the KMS Alias Name"
+        },
+        "IAMRole": {
+            "Type": "String",
+            "Default": "splunk-admin-role",
+            "Description": "Enter the IAM Role Name"
+        },
+        "S3BucketName": {
+            "Type": "String",
+            "Default": "splunk-terraform-s3-01",
+            "Description": "Enter the S3 Bucket Name"
+        },
+        "VersioningEnabled": {
+            "Type": "String",
+            "Default": "Enabled",
+            "AllowedValues": [
+                "Enabled",
+                "Suspended"
+            ],
+            "Description": "Versioning Status"
+        },
+        "DynamoDBTableName": {
+            "Type": "String",
+            "Default": "splunk-terraform-lock-01",
+            "Description": "Enter the DynamoDB Table Name"
+        },
+        "PointInTimeRecoveryEnabled": {
+            "Type": "String",
+            "Default": "true",
+            "Description": "Point In Time Recovery Enabled"
+        }
+    },
+    "Resources": {
+        "KMSKey": {
+            "Type": "AWS::KMS::Key",
+            "Properties": {
+                "Description": "KMS for Encrypting SPLUNK Application",
+                "EnableKeyRotation": true,
+                "KeyPolicy": {
+                    "Version": "2012-10-17",
+                    "Id": "kms-key-policy",
+                    "Statement": [
+                        {
+                            "Sid": "Enable IAM User Permissions",
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": [
+                                    {
+                                        "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"
+                                    }
+                                ]
+                            },
+                            "Action": "kms:*",
+                            "Resource": "*"
+                        },
+                        {
+                            "Sid": "Allow access for key Administrators",
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS":{
+                                        "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"
+                                }
+                            },
+                            "Action": [
+                                "kms:Create*",
+                                "kms:Describe*",
+                                "kms:Enable*",
+                                "kms:List*",
+                                "kms:Put*",
+                                "kms:Update*",
+                                "kms:Revoke*",
+                                "kms:Disable*",
+                                "kms:Get*",
+                                "kms:Delete*",
+                                "kms:TagResource",
+                                "kms:UntagResource",
+                                "kms:ScheduleKeyDeletion",
+                                "kms:CancelKeyDeletion"
+                            ],
+                            "Resource": "*"
+                        },
+                        {
+                            "Sid": "Allow use of the key",
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS":{
+                                        "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:role/${IAMRole}"
+                                }
+                            },
+                            "Action": [
+                                "kms:Encrypt",
+                                "kms:Decrypt",
+                                "kms:ReEncrypt",
+                                "kms:GenerateDataKey*",
+                                "kms:DescribeKey"
+                            ],
+                            "Resource": "*"
+                        },
+                        {
+                            "Sid": "Allow attachment of persistent resources",
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS":{
+                                        "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:role/${IAMRole}"
+                                }
+                            },
+                            "Action": [
+                                "kms:CreateGrant",
+                                "kms:ListGrants",
+                                "kms:RevokeGrant"
+                            ],
+                            "Resource": "*",
+                            "Condition": {
+                                "Bool": {
+                                    "kms:GrantIsForAWSResource": "true"
+                                }
+                            }
+                        }
+
+                    ]
+                }
+            }
+        },
+        "KMSAlias": {
+            "Type":"AWS::KMS::Alias",
+            "Properties": {
+                "AliasName": {
+                    "Fn::Sub": "alias/${KMSAliasName}"
+                },
+                "TargetKeyId": {
+                    "Ref": "KMSKey"
+                }
+            }
+        },
+        "S3Bucket": {
+            "Type":"AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": {
+                    "Ref": "S3BucketName"
+                },
+                "BucketEncryption": {
+                    "ServerSideEncryptionConfiguration": [
+                        {
+                            "ServerSideEncryptionByDefault": {
+                                "SSEAlgorithm": "aws:kms",
+                                "KMSMasterKeyID": {
+                                    "Ref": "KMSKey"
+                                }
+                            }
+                        }
+                    ]
+                },
+                "MetricsConfigurations": [
+                    {
+                        "Id": "EntireBucket"
+                    }
+                ],
+                "VersioningConfiguration": {
+                    "Status": {
+                        "Ref": "VersioningEnabled"
+                    }
+                }
+            }
+        },
+        "DynamoDBTable": {
+            "Type":"AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "LockID",
+                        "AttributeType": "S"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 5,
+                    "WriteCapacityUnits": 5
+                },
+                "KeySchema": [
+                    {
+                        "AttributeName": "LockID",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "TableName": {
+                    "Ref": "DynamoDBTableName"
+                },
+                "PointInTimeRecoverySpecification": {
+                    "PointInTimeRecoveryEnabled": {
+                        "Ref": "PointInTimeRecoveryEnabled"
+                    }
+                },
+                "SSESpecification": {
+                    "KMSMasterKeyId": {
+                        "Ref": "KMSKey"
+                    },
+                    "SSEEnabled": true,
+                    "SSEType": "KMS"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "KMSKeyID": {
+            "Description": "KMS Key ID Created",
+            "Value": {
+                "Ref": "KMSKey"
+            }
+        },
+        "S3BucketName": {
+            "Description": "S3 Bucket Created",
+            "Value": {
+                "Ref": "S3Bucket"
+            }
+        },
+        "DynamoDBTableName": {
+            "Description": "DynamoDB Table Created",
+            "Value": {
+                "Ref": "DynamoDBTable"
+            }
+        }
+    }
+}
